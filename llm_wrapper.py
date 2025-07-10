@@ -2,6 +2,7 @@
 
 import uuid
 import contextvars
+import os
 from typing import Literal, Any
 from langchain_core.runnables import Runnable
 from langchain_openai import ChatOpenAI
@@ -12,6 +13,7 @@ CURRENT_CONFIG = contextvars.ContextVar("CURRENT_CONFIG")
 mappings = {}
 
 def add_thread(thread_id, base_url, api_key, model):
+    print(os.getcwd(), f'.art/langgraph/{thread_id}')
     CURRENT_CONFIG.set({
         "logger": FileLogger(f'.art/langgraph/{thread_id}'),
         "base_url": base_url,
