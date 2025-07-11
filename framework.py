@@ -3,7 +3,7 @@
 import uuid
 import asyncio
 from typing import Any, Callable, List, Tuple, Optional
-from itertools import batched
+from itertools import islice
 from dataclasses import dataclass
 import art
 from art.trajectories import History
@@ -12,6 +12,18 @@ from .logging import FileLogger
 from .message_utils import convert_langgraph_messages
 from langchain_core.messages import ToolMessage
 from langchain_core.prompt_values import ChatPromptValue
+
+def batched(iterable, n):
+    """Batch data into tuples of length n. The last batch may be shorter.
+    
+    >>> list(batched([1, 2, 3, 4, 5], 2))
+    [(1, 2), (3, 4), (5,)]
+    """
+    if n < 1:
+        raise ValueError("n must be at least one")
+    it = iter(iterable)
+    while batch := tuple(islice(it, n)):
+        yield batch
 
 @dataclass
 class TrainingConfig:
