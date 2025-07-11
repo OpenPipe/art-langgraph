@@ -34,7 +34,7 @@ dependencies = [
   "uvicorn ==0.34.3",
   "fastapi ==0.115.12",
   "openpipe-art ==0.3.13",
-  "langgraph-training @ git+https://github.com/OpenPipe/art-langgraph.git@a0bcc731871905589f97e5f7e6135763c1fb8fd8",
+  "langgraph-training @ git+https://github.com/OpenPipe/art-langgraph.git@ffc3dec52f65cee14b587f4e41729f672e2ec0be",
   "skypilot ==0.8.0",
   "skypilot[aws,cudo,do,fluidstack,gcp,lambda,paperspace,runpod] >=0.8.0",
 ]
@@ -51,7 +51,7 @@ These are the requirements from the original project with the ART packages added
 
 ```
 "openpipe-art ==0.3.13",
-"langgraph-training @ git+https://github.com/OpenPipe/art-langgraph.git@a0bcc731871905589f97e5f7e6135763c1fb8fd8",
+"langgraph-training @ git+https://github.com/OpenPipe/art-langgraph.git@ffc3dec52f65cee14b587f4e41729f672e2ec0be",
 "skypilot ==0.8.0",
 "skypilot[aws,cudo,do,fluidstack,gcp,lambda,paperspace,runpod] >=0.8.0",
 ```
