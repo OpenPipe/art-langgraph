@@ -10,7 +10,8 @@ from art.trajectories import History
 from .llm_wrapper import add_thread
 from .logging import FileLogger
 from .message_utils import convert_langgraph_messages
-
+from langchain_core.messages import ToolMessage
+from langchain_core.prompt_values import ChatPromptValue
 
 @dataclass
 class TrainingConfig:
@@ -79,33 +80,50 @@ class TrainingFramework:
     
     def create_trajectory_from_logs(self, log_path: str, reward: float) -> art.Trajectory:
         """
-        Convert logged interactions into a trajectory object.
-        
-        Args:
-            log_path: Path to the log file
-            reward: Reward score for this trajectory
-            
-        Returns:
-            art.Trajectory object containing the conversation history
+        Build a trajectory by merging cumulative logs:
+        - Each conversation grows if its input matches an existing one.
+        - If it doesn't match, start a new conversation.
         """
         logs = FileLogger(log_path).load_logs()
-        
-        trajectory = art.Trajectory(messages_and_choices=[], reward=reward)
-        
+        conversations = []
+
         for log_entry in logs:
             output = log_entry[1]['output']
             raw_output = output.get('raw') if hasattr(output, 'get') else output
-            
-            messages = convert_langgraph_messages(log_entry[1]['input'] + [raw_output])
-            
-            if not trajectory.messages_and_choices:
-                trajectory.messages_and_choices = messages
+
+            input_msgs = log_entry[1]['input'].to_messages() if isinstance(log_entry[1]['input'], ChatPromptValue) else log_entry[1]['input']
+            new_conversation = input_msgs + [raw_output]
+
+            # Try to match with existing conversations
+            matched = False
+            for idx, existing in enumerate(conversations):
+                # Remove ToolMessages if needed — adapt as per your structure!
+                existing_non_tool = [m for m in existing if not isinstance(m, ToolMessage)]
+                new_non_tool = [m for m in input_msgs if not isinstance(m, ToolMessage)]
+
+                if existing_non_tool == new_non_tool:
+                    # Replace with the longer one
+                    conversations[idx] = new_conversation
+                    matched = True
+                    break
+
+            if not matched:
+                conversations.append(new_conversation)
+
+        # Build final trajectory
+        trajectory = art.Trajectory(messages_and_choices=[], reward=reward)
+
+        for idx, conv in enumerate(conversations):
+            converted = convert_langgraph_messages(conv)
+            if idx == 0:
+                trajectory.messages_and_choices = converted
             else:
                 trajectory.additional_histories.append(
-                    History(messages_and_choices=messages, tools=None)
+                    History(messages_and_choices=converted, tools=None)
                 )
-        
+
         return trajectory
+
     
     async def process_scenario(
         self,
@@ -143,25 +161,27 @@ class TrainingFramework:
         
         # Execute validation rollouts if validation model provided
         all_results = list(results)
+        all_logs = list(log_paths)
         if validation_model:
             val_tasks = [
                 self.execute_rollout(model=validation_model, scenario=scenario, agent_function=agent_function)
                 for _ in range(validation_samples)
             ]
             val_results_and_logs = await asyncio.gather(*val_tasks)
-            val_results, _ = zip(*val_results_and_logs)
+            val_results, val_logs = zip(*val_results_and_logs)
             all_results.extend(val_results)
+            all_logs.extend(val_logs)
         
-        # Compute rewards for all results
-        rewards = await reward_function(scenario, all_results)
-        
-        # Create trajectories (only for main model, not validation)
         trajectories = [
-            self.create_trajectory_from_logs(log_path, reward)
-            for log_path, reward in zip(log_paths, rewards[:len(log_paths)])
+            self.create_trajectory_from_logs(log_path, 0)
+            for log_path in all_logs
         ]
+
+        rewards = await(reward_function(scenario, all_results, trajectories))
+        for reward, traj in zip(rewards, trajectories):
+            traj.reward = reward
         
-        return art.TrajectoryGroup(trajectories=trajectories)
+        return art.TrajectoryGroup(trajectories=trajectories[:len(results)])
     
     async def execute_training_step(
         self,

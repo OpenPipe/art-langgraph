@@ -13,7 +13,7 @@ CURRENT_CONFIG = contextvars.ContextVar("CURRENT_CONFIG")
 mappings = {}
 
 def add_thread(thread_id, base_url, api_key, model):
-    print(os.getcwd(), f'.art/langgraph/{thread_id}')
+    os.makedirs(os.path.dirname('.art/langgraph/{thread_id}'), exist_ok=True)
     CURRENT_CONFIG.set({
         "logger": FileLogger(f'.art/langgraph/{thread_id}'),
         "base_url": base_url,
@@ -73,5 +73,8 @@ class LoggingLLM(Runnable):
     def with_structured_output(self, tools):
         return LoggingLLM(self.llm.with_structured_output(tools, include_raw=True), self.logger)
 
-    def __getattr__(self, attr):
-        return getattr(self.llm, attr)
+    def bind_tools(self, tools):
+        return LoggingLLM(self.llm.bind_tools(tools), self.logger)
+
+    # def __getattr__(self, attr):
+    #     return getattr(self.llm, attr)
