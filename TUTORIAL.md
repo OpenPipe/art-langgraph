@@ -33,10 +33,9 @@ dependencies = [
   "tavily-python ==0.7.6",
   "uvicorn ==0.34.3",
   "fastapi ==0.115.12",
-  "openpipe-art ==0.3.13",
-  "langgraph-training @ git+https://github.com/OpenPipe/art-langgraph.git@ffc3dec52f65cee14b587f4e41729f672e2ec0be",
-  "skypilot ==0.8.0",
-  "skypilot[aws,cudo,do,fluidstack,gcp,lambda,paperspace,runpod] >=0.8.0",
+  "openpipe-art[skypilot]==0.4.3",
+  "skypilot[runpod]",
+  "langgraph-training @ git+https://github.com/OpenPipe/art-langgraph.git@f2911234763721d048b4e1afc0f96377f90bcf1c",
 ]
 
 [build-system]
@@ -50,10 +49,9 @@ allow-direct-references = true
 These are the requirements from the original project with the ART packages added
 
 ```
-"openpipe-art ==0.3.13",
-"langgraph-training @ git+https://github.com/OpenPipe/art-langgraph.git@ffc3dec52f65cee14b587f4e41729f672e2ec0be",
-"skypilot ==0.8.0",
-"skypilot[aws,cudo,do,fluidstack,gcp,lambda,paperspace,runpod] >=0.8.0",
+"openpipe-art[skypilot]==0.4.3",
+"skypilot[runpod]",
+"langgraph-training @ git+https://github.com/OpenPipe/art-langgraph.git@f2911234763721d048b4e1afc0f96377f90bcf1c",
 ```
 
 # Getting Your Agent Ready For Training
@@ -98,7 +96,6 @@ This spins up a training machine on your chosen cloud using SkyPilot.
 
 ```py
 backend = await SkyPilotBackend.initialize_cluster(
-    art_version=".",
     cluster_name=CLUSTER_NAME,
     env_path=".env",
     gpu="H100",
@@ -280,7 +277,6 @@ CLUSTER_NAME = "tavily-chat-training-machine"
 
 async def main():
     backend = await SkyPilotBackend.initialize_cluster(
-        art_version=".",
         cluster_name=CLUSTER_NAME,
         env_path=".env",
         gpu="H100",
