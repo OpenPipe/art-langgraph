@@ -5,12 +5,11 @@ import asyncio
 from typing import Any, Callable, List, Tuple, Optional
 from itertools import islice
 from dataclasses import dataclass
-import art
-from art.trajectories import History
+from art.trajectories import History, Trajectory, TrajectoryGroup
 from .llm_wrapper import add_thread
 from .logging import FileLogger
 from .message_utils import convert_langgraph_messages
-from langchain_core.messages import ToolMessage
+from langchain_core.messages import ToolMessage, HumanMessage
 from langchain_core.prompt_values import ChatPromptValue
 
 def batched(iterable, n):
@@ -62,7 +61,7 @@ class TrainingFramework:
     async def execute_rollout(
         self, 
         *,
-        model: art.Model, 
+        model, 
         scenario: Any, 
         agent_function: Callable
     ) -> Tuple[Any, str]:
@@ -90,7 +89,7 @@ class TrainingFramework:
         
         return result, log_path
     
-    def create_trajectory_from_logs(self, log_path: str, reward: float) -> art.Trajectory:
+    def create_trajectory_from_logs(self, log_path: str, reward: float) -> Trajectory:
         """
         Build a trajectory by merging cumulative logs:
         - Each conversation grows if its input matches an existing one.
@@ -112,6 +111,7 @@ class TrainingFramework:
                 # Remove ToolMessages if needed — adapt as per your structure!
                 existing_non_tool = [m for m in existing if not isinstance(m, ToolMessage)]
                 new_non_tool = [m for m in input_msgs if not isinstance(m, ToolMessage)]
+                new_non_tool = new_non_tool[:-1] if new_non_tool and isinstance(new_non_tool[-1], HumanMessage) else new_non_tool
 
                 if existing_non_tool == new_non_tool:
                     # Replace with the longer one
@@ -123,7 +123,7 @@ class TrainingFramework:
                 conversations.append(new_conversation)
 
         # Build final trajectory
-        trajectory = art.Trajectory(messages_and_choices=[], reward=reward)
+        trajectory = Trajectory(messages_and_choices=[], reward=reward)
 
         for idx, conv in enumerate(conversations):
             converted = convert_langgraph_messages(conv)
@@ -140,14 +140,14 @@ class TrainingFramework:
     async def process_scenario(
         self,
         *,
-        model: art.Model,
+        model,
         scenario: Any,
         group_size: int,
         agent_function: Callable,
         reward_function: Callable,
-        validation_model: Optional[art.Model] = None,
+        validation_model = None,
         validation_samples: int = 2
-    ) -> art.TrajectoryGroup:
+    ) -> TrajectoryGroup:
         """
         Process a single scenario by running multiple rollouts and computing rewards.
         
@@ -193,17 +193,17 @@ class TrainingFramework:
         for reward, traj in zip(rewards, trajectories):
             traj.reward = reward
         
-        return art.TrajectoryGroup(trajectories=trajectories[:len(results)])
+        return TrajectoryGroup(trajectories=trajectories[:len(results)])
     
     async def execute_training_step(
         self,
         *,
-        model: art.Model,
+        model,
         scenarios: List[Any],
         group_size: int,
         agent_function: Callable,
         reward_function: Callable,
-        validation_model: Optional[art.Model] = None,
+        validation_model = None,
         validation_samples: int = 2
     ) -> None:
         """
@@ -237,13 +237,13 @@ class TrainingFramework:
     async def run_training_epoch(
         self,
         *,
-        model: art.Model,
+        model,
         scenarios: List[Any],
         batch_size: int,
         group_size: int,
         agent_function: Callable,
         reward_function: Callable,
-        validation_model: Optional[art.Model] = None,
+        validation_model = None,
         validation_samples: int = 2
     ) -> None:
         """
@@ -273,12 +273,12 @@ class TrainingFramework:
     async def run_training(
         self,
         *,
-        model: art.Model,
+        model,
         scenarios: List[Any],
         agent_function: Callable,
         reward_function: Callable,
         config: TrainingConfig,
-        validation_model: Optional[art.Model] = None
+        validation_model = None
     ) -> None:
         """
         Run the complete training process for the specified number of epochs.
