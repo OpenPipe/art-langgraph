@@ -6,6 +6,7 @@ from typing import Any, Callable, List, Tuple, Optional
 from itertools import islice
 from dataclasses import dataclass
 from art.trajectories import History, Trajectory, TrajectoryGroup
+from art import Model
 from .llm_wrapper import add_thread
 from .logging import FileLogger
 from .message_utils import convert_langgraph_messages
@@ -193,12 +194,25 @@ class TrainingFramework:
         for reward, traj in zip(rewards, trajectories):
             traj.reward = reward
         
+        wins = 0
+        total = 0
+        for traj in trajectories[:len(results)]:
+            traj.metrics["wins"] = 0
+            traj.metrics["win_rate"] = 0
+            for val in trajectories[len(results):]:
+                traj.metrics["wins"] += 1 if traj.reward >= val.reward else 0
+                traj.metrics["win_rate"] += (1 if traj.reward >= val.reward else 0) / len(trajectories[len(results):])
+                if traj.reward >= val.reward:
+                    wins += 1
+                total += 1
+        
+        print(f"Win rate: {wins/total}")
         return TrajectoryGroup(trajectories=trajectories[:len(results)])
     
     async def execute_training_step(
         self,
         *,
-        model,
+        model: Model,
         scenarios: List[Any],
         group_size: int,
         agent_function: Callable,
@@ -233,6 +247,7 @@ class TrainingFramework:
         
         trajectory_groups = await asyncio.gather(*scenario_tasks)
         await model.train(trajectory_groups)
+        await model.backend()._experimental_push_to_s3(model)
     
     async def run_training_epoch(
         self,
